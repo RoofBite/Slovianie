@@ -1682,8 +1682,8 @@ class Game:
 async def run_game_async_entry_point():
     """Asynchroniczny punkt wejścia do gry, wywoływany z JavaScript."""
     random.seed()  #
-    gra = Game() #
-    await gra.start_gry() #
+    game = Game() #
+    await game.start_gry() #
 
 # Stary blok if __name__ == "__main__": nie jest już potrzebny dla Pyodide,
 # ponieważ run_game_async_entry_point() zostanie wywołane z JavaScriptu.
