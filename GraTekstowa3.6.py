@@ -129,7 +129,7 @@ def load_state_from_json(game: "Game", json_str: str):
     for nazwa in gs.get("wioski_info", []):
         game.wioski_info[nazwa] = Village(nazwa)
 
-    print("🔄 Stan gry został wczytany z pliku save.json!")
+    print("🔄 Stan gry został wczytany z pliku save.json! Zatwierdź przyciskiem 'Wyślij'")
     return True
 
 
