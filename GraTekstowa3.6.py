@@ -66,6 +66,7 @@ def download_save(game: "Game"):
     """
     Generuje JSON (z get_state_as_json) i wywołuje JS, żeby pobrać plik save.json.
     """
+    print("🔄 Wywołano download_save(game)")
     data_str = get_state_as_json(game)  # cały stan gry jako string JSON
     # Tworzymy Blob z tego stringa (ustawiamy typ "application/json")
     blob = Blob.new([data_str], { "type": "application/json" })
