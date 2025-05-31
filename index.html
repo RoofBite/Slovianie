@@ -1,187 +1,236 @@
-<!DOCTYPE html><html lang="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Słowiańska Dzicz (Dark Grey Mode)</title>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
-    
-    <button id="force-refresh-btn">Force Refresh</button>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Słowiańska Dzicz (Dark Grey Mode)</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
 
-<script>
-document.getElementById("force-refresh-btn").addEventListener("click", () => {
-  // Do Android: wymuś reload z pominięciem cache (niestety window.location.reload(true) jest przestarzałe)
-  // Trik: zmiana adresu URL przez dodanie parametru zapytania (tzw. cache buster)
-  const currentUrl = new URL(window.location.href);
-  currentUrl.searchParams.set('forceReload', Date.now());
-  window.location.href = currentUrl.toString();
-});
-</script>
-    
-    
-    <button id="clear-cache-btn">Wyczyść cache Pyodide</button>
+  <!-- --- Przycisk Force Refresh --- -->
+  <button id="force-refresh-btn">Force Refresh</button>
+  <script>
+    document.getElementById("force-refresh-btn").addEventListener("click", () => {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.searchParams.set("forceReload", Date.now());
+      window.location.href = currentUrl.toString();
+    });
+  </script>
 
-<script>
-document.getElementById("clear-cache-btn").addEventListener("click", async () => {
-  // Wyczyść IndexedDB (gdzie Pyodide może trzymać swoje dane)
-  const dbs = await indexedDB.databases();
-  for (const db of dbs) {
-    indexedDB.deleteDatabase(db.name);
-  }
+  <!-- --- Przycisk Clear Cache Pyodide --- -->
+  <button id="clear-cache-btn">Wyczyść cache Pyodide</button>
+  <script>
+    document.getElementById("clear-cache-btn").addEventListener("click", async () => {
+      const dbs = await indexedDB.databases();
+      for (const db of dbs) {
+        indexedDB.deleteDatabase(db.name);
+      }
+      if ("caches" in window) {
+        const cacheNames = await caches.keys();
+        for (const name of cacheNames) {
+          await caches.delete(name);
+        }
+      }
+      alert("Cache Pyodide został wyczyszczony! Odśwież stronę, aby zobaczyć zmiany.");
+      location.reload();
+    });
+  </script>
 
-  // Wyczyść CacheStorage (gdzie Pyodide może trzymać pliki)
-  if ("caches" in window) {
-    const cacheNames = await caches.keys();
-    for (const name of cacheNames) {
-      await caches.delete(name);
+  <style>
+    /* Dark Grey Mode Styles */
+    body {
+      font-family: monospace;
+      margin: 20px;
+      background-color: #2e2e2e;
+      color: #f5f5f5;
     }
-  }
+    h1 {
+      color: #ffffff;
+    }
+    #output-area {
+      width: 90%;
+      height: 400px;
+      border: 1px solid #444;
+      padding: 10px;
+      overflow-y: scroll;
+      background-color: #383838;
+      color: #f5f5f5;
+      white-space: pre-wrap;
+    }
+    #input-container {
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+    }
+    .prompt-message {
+      margin-right: 5px;
+      color: #c0c0c0;
+    }
+    #input-field {
+      width: 70%;
+      padding: 5px;
+      background-color: #444;
+      color: #f5f5f5;
+      border: 1px solid #555;
+    }
+    #submit-button {
+      padding: 5px 10px;
+      margin-left: 5px;
+      background-color: #555;
+      color: #f5f5f5;
+      border: 1px solid #666;
+      cursor: pointer;
+    }
+    #submit-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    input:focus, button:focus {
+      outline: 2px solid #888;
+    }
 
-  alert("Cache Pyodide został wyczyszczony! Odśwież stronę, aby zobaczyć zmiany.");
-  location.reload(); // przeładuj stronę
-});
-</script>
-    
-    <style>
-        /* Dark Grey Mode Styles */
-        body {
-            font-family: monospace;
-            margin: 20px;
-            background-color: #2e2e2e;
-            color: #f5f5f5;
-        }
-        h1 {
-            color: #ffffff;
-        }
-        #output-area {
-            width: 90%;
-            height: 550px;
-            border: 1px solid #444;
-            padding: 10px;
-            overflow-y: scroll;
-            background-color: #383838;
-            color: #f5f5f5;
-            white-space: pre-wrap;
-        }
-        #input-container {
-            margin-top: 10px;
-            display: flex;
-            align-items: center;
-        }
-        .prompt-message {
-            margin-right: 5px;
-            color: #c0c0c0;
-        }
-        #input-field {
-            width: 70%;
-            padding: 5px;
-            background-color: #444;
-            color: #f5f5f5;
-            border: 1px solid #555;
-        }
-        #submit-button {
-            padding: 5px 10px;
-            margin-left: 5px;
-            background-color: #555;
-            color: #f5f5f5;
-            border: 1px solid #666;
-            cursor: pointer;
-        }
-        #submit-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        input:focus, button:focus {
-            outline: 2px solid #888;
-        }
-    </style>
+    /* --- Dodatkowe przyciski Save / Load --- */
+    #controls {
+      margin-top: 15px;
+    }
+    #save-btn, #load-input {
+      margin-right: 10px;
+    }
+  </style>
 </head>
 <body>
-    <h1>Słowiańska Dzicz</h1>
-    <div id="output-area">Loading Pyodide and game...</div>
-    <div id="input-container">
-        <span id="prompt-message-area" class="prompt-message"></span>
-        <input type="text" id="input-field" disabled>
-        <button id="submit-button" disabled>Wyślij</button>
-    </div><script>
+  <h1>Słowiańska Dzicz</h1>
+
+  <!-- Tu wyświetlamy tekst gry -->
+  <div id="output-area">Loading Pyodide and game...</div>
+
+  <!-- Kontener na wpisanie komendy przez gracza -->
+  <div id="input-container">
+    <span id="prompt-message-area" class="prompt-message"></span>
+    <input type="text" id="input-field" disabled>
+    <button id="submit-button" disabled>Wyślij</button>
+  </div>
+
+  <!-- --- Nowy kontener na przycisk SAVE i input LOAD --- -->
+  <div id="controls">
+    <button id="save-btn">Zapisz grę (pobierz plik)</button>
+    <input type="file" id="load-input" accept=".json" />
+    <span style="color:#c0c0c0;">(Wybierz plik save.json, by wczytać stan)</span>
+  </div>
+
+  <script>
+    // ----- Elementy i helpery -----
     const outputElement = document.getElementById("output-area");
     const inputElement = document.getElementById("input-field");
     const submitButton = document.getElementById("submit-button");
     const promptMessageArea = document.getElementById("prompt-message-area");
+    const saveBtn = document.getElementById("save-btn");
+    const loadInput = document.getElementById("load-input");
 
-    let pyodide;
+    let pyodide = null;
     let resolveInputPromise = null;
 
     function jsPrint(message) {
-        outputElement.textContent += message;
-        outputElement.scrollTop = outputElement.scrollHeight;
+      outputElement.textContent += message;
+      outputElement.scrollTop = outputElement.scrollHeight;
     }
-
     function jsClearOutput() {
-        outputElement.textContent = "";
+      outputElement.textContent = "";
     }
-
     function jsRequestInput(promptText) {
-        promptMessageArea.textContent = promptText;
-        inputElement.disabled = false;
-        submitButton.disabled = false;
-        inputElement.focus();
-        return new Promise((resolve) => {
-            resolveInputPromise = resolve;
-        });
+      promptMessageArea.textContent = promptText;
+      inputElement.disabled = false;
+      submitButton.disabled = false;
+      inputElement.focus();
+      return new Promise((resolve) => {
+        resolveInputPromise = resolve;
+      });
     }
-
     function handleUserInput() {
-        const text = inputElement.value;
-        inputElement.value = "";
-        inputElement.disabled = true;
-        submitButton.disabled = true;
-        promptMessageArea.textContent = "";
-
-        jsPrint(text + "\n");
-
-        if (resolveInputPromise) {
-            resolveInputPromise(text);
-            resolveInputPromise = null;
-        }
+      const text = inputElement.value;
+      inputElement.value = "";
+      inputElement.disabled = true;
+      submitButton.disabled = true;
+      promptMessageArea.textContent = "";
+      jsPrint(text + "\n");
+      if (resolveInputPromise) {
+        resolveInputPromise(text);
+        resolveInputPromise = null;
+      }
     }
-
     submitButton.addEventListener("click", handleUserInput);
     inputElement.addEventListener("keypress", function(event) {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            handleUserInput();
-        }
+      if (event.key === "Enter") {
+        event.preventDefault();
+        handleUserInput();
+      }
     });
 
+    // ----- Main: ładujemy Pyodide i grę -----
     async function main() {
-        jsPrint("Loading Pyodide runtime...\n");
-        pyodide = await loadPyodide();
-        jsPrint("Pyodide loaded. Initializing Python environment...\n");
+      jsPrint("Loading Pyodide runtime...\n");
+      pyodide = await loadPyodide();
+      jsPrint("Pyodide loaded. Initializing Python environment...\n");
 
-        pyodide.globals.set("js_print_function", jsPrint);
-        pyodide.globals.set("js_clear_output_function", jsClearOutput);
-        pyodide.globals.set("js_request_input_function", jsRequestInput);
+      // Przekazujemy do Pythona referencje do JS-owych funkcji:
+      pyodide.globals.set("js_print_function", jsPrint);
+      pyodide.globals.set("js_clear_output_function", jsClearOutput);
+      pyodide.globals.set("js_request_input_function", jsRequestInput);
 
-        jsPrint("Fetching Python game code (GraTekstowa3.6.py)...\n");
-        const response = await fetch("GraTekstowa3.6.py");
-        const pythonCode = await response.text();
-        jsPrint("Python code fetched. Running game...\n\n");
-        jsClearOutput();
+      jsPrint("Fetching Python game code (GraTekstowa3.6.py)...\n");
+      const response = await fetch("GraTekstowa3.6.py");
+      const pythonCode = await response.text();
+      jsPrint("Python code fetched. Running game...\n\n");
+      jsClearOutput();
 
-        try {
-            await pyodide.runPythonAsync(pythonCode + "\nawait run_game_async_entry_point()");
-            jsPrint("\n--- Koniec Gry ---");
-        } catch (err) {
-            jsPrint("\n--- Błąd Pythona ---\n" + err);
-            console.error(err);
-        }
-        inputElement.disabled = true;
-        submitButton.disabled = true;
-        promptMessageArea.textContent = "Gra zakończona.";
+      try {
+        // Uruchamiamy cały kod Pythona, który definiuje klasę Game i funkcje
+        await pyodide.runPythonAsync(pythonCode + "\nawait run_game_async_entry_point()");
+        jsPrint("\n--- Koniec Gry ---");
+      } catch (err) {
+        jsPrint("\n--- Błąd Pythona ---\n" + err);
+        console.error(err);
+      }
+      inputElement.disabled = true;
+      submitButton.disabled = true;
+      promptMessageArea.textContent = "Gra zakończona.";
     }
 
     main();
-</script>
 
+    // ----- Obsługa przycisku „Zapisz grę” -----
+    saveBtn.addEventListener("click", async () => {
+      // Wywołujemy w Pyodide funkcję download_save(game)
+      // Zakładamy, że w Pythonie jest globalna zmienna `game`
+      // która jest instancją Game
+      if (!pyodide) return;
+      try {
+        await pyodide.runPythonAsync("download_save(game)");
+      } catch (e) {
+        console.error("Błąd podczas zapisywania stanu:", e);
+      }
+    });
+
+    // ----- Obsługa wyboru pliku „save.json” -----
+    loadInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const content = e.target.result; // to będzie string JSON
+        if (!pyodide) return;
+        try {
+          // Wywołujemy Pythonową funkcję load_state_from_json(game, content)
+          // Uwaga: JSON.stringify(content) po stronie JS upewnia, że tekst jest
+          // dobrze ujęty w cudzysłowy i poprawnie escapowany w Pythonie.
+          await pyodide.runPythonAsync(`load_state_from_json(game, ${JSON.stringify(content)})`);
+        } catch (err) {
+          console.error("Błąd przy wczytywaniu save.json:", err);
+        }
+      };
+      reader.readAsText(file);
+      // resetujemy input, żeby można było wczytać kolejny plik, nawet ten sam
+      loadInput.value = "";
+    });
+  </script>
 </body>
 </html>
