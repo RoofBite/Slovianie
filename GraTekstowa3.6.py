@@ -10,6 +10,146 @@ import asyncio # Do operacji asynchronicznych
 # Te funkcje (js_print_function, js_request_input_function)
 # są dostarczane przez środowisko JavaScript poprzez pyodide.globals.set()
 
+
+
+
+
+
+
+# --- Dodaj to u siebie w GraTekstowa3.6.py, pod innymi importami ---
+
+import json
+from js import window, Blob, URL, document
+
+def get_state_as_json(game: "Game") -> str:
+    """
+    Zbiera najważniejsze pola gry i zwraca je jako JSON-string.
+    (tu: bez kompresji, czyste json.dumps)
+    """
+    p = game.player
+    player_state = {
+        "lokacja_gracza": p.lokacja_gracza,
+        "dni_w_podrozy": p.dni_w_podrozy,
+        "godziny_w_tej_dobie": p.godziny_w_tej_dobie,
+        "inventory": p.inventory,                   # np. {"jedzenie": 3, ...}
+        "inventory_cenne": p.inventory_cenne,       # np. {"bursztyn": 2, ...}
+        "inventory_towary_handlowe": p.inventory_towary_handlowe,
+        "umiejetnosci": p.umiejetnosci,
+        "punkty_umiejetnosci_do_wydania": p.punkty_umiejetnosci_do_wydania,
+        "xp": p.xp,
+        "poziom": p.poziom,
+        "reputacja": p.reputacja,
+        "wytrzymalosc": p.wytrzymalosc,
+        "glod_pragnienie": p.glod_pragnienie,
+        "komfort_psychiczny": p.komfort_psychiczny,
+        "ma_ogien": p.ma_ogien,
+        "ma_schronienie": p.ma_schronienie,
+    }
+
+    game_state = {
+        "aktualny_etap_eksploracji_idx": game.aktualny_etap_eksploracji_idx,
+        "lokacje_w_aktualnym_etapie": game.lokacje_w_aktualnym_etapie,
+        "odkryte_typy_obszarow": list(game.odkryte_typy_obszarow),
+        "aktywne_zadanie": game.aktywne_zadanie or None,
+        "nazwa_aktualnej_wioski": game.nazwa_aktualnej_wioski,
+        "wioski_info": list(game.wioski_info.keys()),
+    }
+
+    full = {
+        "player": player_state,
+        "game": game_state
+    }
+    # Używamy separators=(",",":") żeby JSON był trochę bardziej zwarty
+    return json.dumps(full, separators=(",",":"))
+
+def download_save(game: "Game"):
+    """
+    Generuje JSON (z get_state_as_json) i wywołuje JS, żeby pobrać plik save.json.
+    """
+    data_str = get_state_as_json(game)  # cały stan gry jako string JSON
+    # Tworzymy Blob z tego stringa (ustawiamy typ "application/json")
+    blob = Blob.new([data_str], { "type": "application/json" })
+    # Tworzymy URL do bloba
+    url = URL.createObjectURL(blob)
+    # Dynamicznie tworzymy <a download="save.json" href="..."> i klikamy go
+    a = document.createElement("a")
+    a.href = url
+    a.download = "save.json"
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    # Zwolnij URL
+    URL.revokeObjectURL(url)
+
+def load_state_from_json(game: "Game", json_str: str):
+    """
+    Przyjmuje string JSON (tak jak wygenerowany w get_state_as_json)
+    i przywraca stan gry (Game + Player).
+    """
+    try:
+        full = json.loads(json_str)
+    except Exception as e:
+        print("Błąd parsowania JSON-a:", e)
+        return False
+
+    # 1) Przywróć Playera
+    p = game.player
+    ps = full.get("player", {})
+    p.lokacja_gracza = ps.get("lokacja_gracza", p.lokacja_gracza)
+    p.dni_w_podrozy = ps.get("dni_w_podrozy", p.dni_w_podrozy)
+    p.godziny_w_tej_dobie = ps.get("godziny_w_tej_dobie", p.godziny_w_tej_dobie)
+    p.inventory = ps.get("inventory", p.inventory)
+    p.inventory_cenne = ps.get("inventory_cenne", p.inventory_cenne)
+    p.inventory_towary_handlowe = ps.get("inventory_towary_handlowe", p.inventory_towary_handlowe)
+    p.umiejetnosci = ps.get("umiejetnosci", p.umiejetnosci)
+    p.punkty_umiejetnosci_do_wydania = ps.get("punkty_umiejetnosci_do_wydania", p.punkty_umiejetnosci_do_wydania)
+    p.xp = ps.get("xp", p.xp)
+    p.poziom = ps.get("poziom", p.poziom)
+    p.reputacja = ps.get("reputacja", p.reputacja)
+    p.wytrzymalosc = ps.get("wytrzymalosc", p.wytrzymalosc)
+    p.glod_pragnienie = ps.get("glod_pragnienie", p.glod_pragnienie)
+    p.komfort_psychiczny = ps.get("komfort_psychiczny", p.komfort_psychiczny)
+    p.ma_ogien = ps.get("ma_ogien", p.ma_ogien)
+    p.ma_schronienie = ps.get("ma_schronienie", p.ma_schronienie)
+    # Po każdej istotnej zmianie: odśwież udźwig
+    p.maks_udzwig = p.oblicz_maks_udzwig()
+    p.oblicz_aktualny_udzwig()
+
+    # 2) Przywróć stan Game’a
+    gs = full.get("game", {})
+    game.aktualny_etap_eksploracji_idx = gs.get("aktualny_etap_eksploracji_idx", game.aktualny_etap_eksploracji_idx)
+    game.lokacje_w_aktualnym_etapie = gs.get("lokacje_w_aktualnym_etapie", game.lokacje_w_aktualnym_etapie)
+    odkryte = gs.get("odkryte_typy_obszarow", list(game.odkryte_typy_obszarow))
+    game.odkryte_typy_obszarow = set(odkryte)
+    game.aktywne_zadanie = gs.get("aktywne_zadanie", game.aktywne_zadanie)
+    game.nazwa_aktualnej_wioski = gs.get("nazwa_aktualnej_wioski", game.nazwa_aktualnej_wioski)
+    # Otwórz wioski w game.wioski_info
+    game.wioski_info = {}
+    for nazwa in gs.get("wioski_info", []):
+        game.wioski_info[nazwa] = Village(nazwa)
+
+    print("🔄 Stan gry został wczytany z pliku save.json!")
+    return True
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class SimpleJsWriter:
     """Prosta klasa do przekierowania standardowego wyjścia do funkcji JavaScript."""
     def write(self, s):
