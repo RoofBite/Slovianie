@@ -1,4 +1,4 @@
-# GraTekstowa3.6.py - WERSJA KOMPLETNA ZMODYFIKOWANA
+# GraTekstowa3.8.py - WERSJA KOMPLETNA ZMODYFIKOWANA
 
 import random
 import math
@@ -338,12 +338,12 @@ class Player:
         stara_wartosc = getattr(self, potrzeba, 0.0)
         oryginalna_wartosc_f = float(wartosc)
         wartosc_f = oryginalna_wartosc_f
-        if wartosc_f < 0 and stara_wartosc >= 9.0: wartosc_f *= 0.5
+        if wartosc_f < 0 and stara_wartosc >= 10.5: wartosc_f *= 0.8
         nowa_wartosc = max(1.0, min(11.0, stara_wartosc + wartosc_f))
         setattr(self, potrzeba, nowa_wartosc)
         if not cicho and abs(stara_wartosc - nowa_wartosc) > 0.01:
             zm_disp = f"{wartosc_f:+.1f}".replace(".0","")
-            if wartosc_f != oryginalna_wartosc_f: zm_disp += " (zredukowany spadek)"
+            if wartosc_f != oryginalna_wartosc_f: zm_disp += " (zredukowany spadek dzięki wysokiemu zaspokojeniu potrzeby)"
             akt_disp = f"{nowa_wartosc:.1f}".replace(".0","")
             print(f" {potrzeba.replace('_',' ').capitalize()} {zm_disp} (do: {akt_disp}).")
     def oblicz_modyfikator_rzutu(self):
@@ -591,7 +591,9 @@ class Game:
                     nazwa_celu, _, _ = wioski_na_stronie[idx_wyb]
                     czy_daleka_final = akt_str > 0 # Ponownie, bazuje na stronie wyświetlania
                     print(f"Wybrano podróż do: {nazwa_celu}{' z utrudnieniem.' if czy_daleka_final else '.'}")
-                    if await async_input("Potwierdź (t/n): ").lower() == 't':
+                  
+            potwierdzenie_input = await async_input("Potwierdź (t/n): ")
+            if potwierdzenie_input.strip().lower() == 't':
                         self.cel_podrozy_nazwa_global = nazwa_celu
                         self.czy_daleka_podroz_global = czy_daleka_final
                         return "rozpocznij_eksploracje_do_celu"
@@ -646,7 +648,7 @@ class Game:
                     print(f"Wypijasz napar za {koszt} zł."); await self.player.uplyw_czasu(0.5, "napitek w karczmie")
                 else: print(f"Brak złota (koszt: {koszt}).")
             elif wybor == "4":
-                print("Co chcesz kupić? (a. Jedzenie[3zł] / b. Woda[2zł] / c. Drewno[1zł] / 0. Anuluj)"); wyb_zak = await async_input("> ")
+                print("Co chcesz kupić?\n a. Jedzenie[3zł]\nb. Woda[2zł]\n c. Drewno[1zł]\n 0. Anuluj)"); wyb_zak = await async_input("> ")
                 znizka = (1.0 - self.player.umiejetnosci["charyzma_handel"] * 0.03)
                 if wyb_zak == 'a': koszt = max(1, int(3 * znizka)); towar_nazwa = "jedzenie"
                 elif wyb_zak == 'b': koszt = max(1, int(2 * znizka)); towar_nazwa = "woda"
@@ -986,8 +988,8 @@ class Game:
         while True:
             await asyncio.sleep(0.01); print(self.player)
             print(f"\nJesteś w: {self.player.lokacja_gracza}. Co robić?"); opcje = ["Ruszaj dalej", "Odpocznij", "Zjedz", "Napij się",
-                f"Rozpal ogień (D:{self.player.inventory['drewno']}, O:{'Jest' if self.player.ma_ogien else 'Brak'})",
-                f"Zbuduj schronienie (D:{self.player.inventory['drewno']}, S:{'Jest' if self.player.ma_schronienie else 'Brak'})",
+                f"Rozpal ogień (Drewno:{self.player.inventory['drewno']}, Ogień:{'Jest' if self.player.ma_ogien else 'Brak'})",
+                f"Zbuduj schronienie (Drewno:{self.player.inventory['drewno']}, Schronienie:{'Jest' if self.player.ma_schronienie else 'Brak'})",
                 "Przeszukaj okolicę", "Nic nie rób"]
             for i, op in enumerate(opcje): print(f"{i+1}. {op}")
             wyb = await async_input("> "); wyb = wyb.strip()
