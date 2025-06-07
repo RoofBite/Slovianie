@@ -1,16 +1,16 @@
-# GraTekstowa3.8.py - WERSJA KOMPLETNA ZMODYFIKOWANA
+# GraTekstowa3.8.py - WERSJA Z MODYFIKATORAMI ŚRODOWISKOWYMI
 
 import random
 import math
-import sys 
-import asyncio 
+import sys
+import asyncio
 import json
 from js import window, Blob, URL, document #js_print_function, js_request_input_function, #js_set_game_instance
 
 # --- Konfiguracja Środowiska (Pyodide/JS) ---
 class SimpleJsWriter:
     def write(self, s):
-        js_print_function(s) 
+        js_print_function(s)
     def flush(self):
         pass
 
@@ -18,7 +18,7 @@ sys.stdout = SimpleJsWriter()
 sys.stderr = SimpleJsWriter()
 
 async def async_input(prompt=""):
-    return await js_request_input_function(prompt) 
+    return await js_request_input_function(prompt)
 
 # --- Stałe Gry ---
 PRODUKTY_ROLNE = "Produkty rolne"
@@ -82,6 +82,100 @@ OBSZARY_DZICZY = {
     "Spalona Ziemia": {"opis": "Przechodzisz przez krainę spustoszoną przez pożar.", "kary_przy_wejsciu": {"komfort_psychiczny": -1.0, "glod_pragnienie": -0.5}, "zasoby": {"drewno_opalone": (3, 0.5), "stara_moneta": (1, 0.03)}, "wydarzenia_specjalne": ["poczucie_straty", "aura_demonow", "znalezisko_w_pogorzelisku", "dzikie_zwierze"], "trudnosc_ognia": 0.3, "opis_demonow": "Cienie zgliszcz poruszają się same...", "xp_za_odkrycie": 20 },
     "Kamieniste Pustkowie": {"opis": "Bezkresne, kamieniste pustkowie.", "kary_przy_wejsciu": {"wytrzymalosc": -1.0, "glod_pragnienie": -1.0}, "zasoby": {"woda_skala": (1, 0.1), "drobna_zwierzyna_pustynna": (1, 0.1)}, "wydarzenia_specjalne": ["ekstremalne_temperatury", "burza_piaskowa", "poczucie_osamotnienia", "dzikie_zwierze"], "trudnosc_ognia": 0.5, "opis_demonow": "Pustka wroga życiu...", "xp_za_odkrycie": 25 }
 }
+
+# NOWA STRUKTURA DANYCH Z MODYFIKATORAMI
+MODYFIKATORY_SRODOWISKOWE = {
+    # --- Istniejące modyfikatory ---
+    "Ulewny Deszcz": {
+        "opis": "Z nieba leją się strugi deszczu. Wszystko jest mokre i zimne.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": -1.5, "wytrzymalosc": -0.5},
+            "modyfikator_akcji": {
+                "rozpal_ogien_prog": 3, # Dodatkowa trudność do progu sukcesu
+            }
+        }
+    },
+    "Gęsta Mgła": {
+        "opis": "Gęsta, mleczna mgła ogranicza widoczność do kilku kroków. Dźwięki są stłumione i dziwnie bliskie.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": -1.0},
+            "opis_dodatkowy": "We mgle łatwo stracić orientację."
+        }
+    },
+    "Duszny Zapar": {
+        "opis": "Powietrze stoi w miejscu, jest ciężkie i wilgotne. Trudno złapać oddech.",
+        "efekty": {
+            "zmien_potrzebe": {"wytrzymalosc": -1.0, "glod_pragnienie": -0.5},
+            "opis_dodatkowy": "Każdy wysiłek męczy podwójnie."
+        }
+    },
+    "Silny Wiatr": {
+        "opis": "Porywisty wiatr targa drzewami i utrudnia marsz.",
+        "efekty": {
+            "zmien_potrzebe": {"wytrzymalosc": -1.0},
+            "modyfikator_akcji": {
+                "rozpal_ogien_prog": 2
+            },
+            "nowe_wydarzenie": {
+                "szansa": 0.2,
+                "tekst": "Wiatr zrywa ci z pleców część ekwipunku!",
+                "akcja": "utrata_przedmiotu"
+            }
+        }
+    },
+    "Czyste Niebo i Ciepło": {
+        "opis": "Słońce przyjemnie grzeje, a na niebie nie ma ani jednej chmury.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": 1.0},
+        }
+    },
+
+    # --- NOWE MODYFIKATORY ---
+    "Przymrozek": {
+        "opis": "Zimno staje się dotkliwe, a szron pokrywa ziemię. Twój oddech zamienia się w parę.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": -1.0, "wytrzymalosc": -0.5},
+            "modyfikator_akcji": {
+                "rozpal_ogien_prog": 1 # Trudniej rozpalić ogień na zimnie
+            },
+            "opis_dodatkowy": "Bez ciepłego ognia trudno będzie przetrwać noc."
+        }
+    },
+    "Rój Insektów": {
+        "opis": "Chmary natrętnych, gryzących insektów unoszą się w powietrzu. Nie dają ci spokoju.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": -2.0}, # Bardzo irytujące
+            "opis_dodatkowy": "Ciągłe bzyczenie i ukąszenia doprowadzają cię do szału."
+        }
+    },
+    "Nienaturalna Cisza": {
+        "opis": "W lesie zapada nagła, głucha cisza. Nie słychać ptaków, wiatru ani owadów.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": -1.5}, # Niepokojące zjawisko
+            "opis_dodatkowy": "Ta cisza jest gorsza niż najgłośniejszy hałas. Czujesz na plecach czyjś wzrok."
+        }
+    },
+    "Gwieździsta Noc": {
+        "opis": "Niebo jest bezchmurne i usiane milionami gwiazd. Czasem widać spadającą gwiazdę.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": 1.5}, # Pozytywny, inspirujący widok
+            "opis_dodatkowy": "Widok ten napawa cię nadzieją i spokojem."
+        }
+    },
+    "Zapach Zgnilizny": {
+        "opis": "W powietrzu unosi się ciężki, słodkawy odór rozkładu. Coś dużego musiało tu umrzeć.",
+        "efekty": {
+            "zmien_potrzebe": {"komfort_psychiczny": -1.0, "glod_pragnienie": -0.5},
+             "nowe_wydarzenie": {
+                "szansa": 0.15,
+                "tekst": "Odór jest tak silny, że psuje ci część zapasów jedzenia.",
+                "akcja": "utrata_przedmiotu"
+            }
+        }
+    }
+}
+
+
 ETAPY_EKSPLORACJI = [
     {"kosci": [10, 8, 6],  "szanse_na_wies": [1]},
     {"kosci": [8, 10, 12], "szanse_na_wies": [1, 2, 3]},
@@ -181,11 +275,11 @@ def load_state_from_json(game: "Game", json_str: str):
 
 
     for nazwa_wioski in all_village_names_to_ensure:
-        village_obj = Village(nazwa_wioski) 
+        village_obj = Village(nazwa_wioski)
         if nazwa_wioski in loaded_wioski_data and "aspekty_wioski_numeric" in loaded_wioski_data[nazwa_wioski]:
             village_obj.aspekty_wioski_numeric = loaded_wioski_data[nazwa_wioski]["aspekty_wioski_numeric"]
         # Jeśli aspekty nie były w save lub to nowa wioska z listy, _generuj_aspekty_i_wplyw() w __init__ Village zadziała.
-        village_obj._oblicz_poziomy_produkcji_i_ceny() 
+        village_obj._oblicz_poziomy_produkcji_i_ceny()
         game.wioski_info[nazwa_wioski] = village_obj
     
     # Upewnij się, że player.lokacja_gracza jest poprawnie ustawiona jeśli jest to nazwa wioski
@@ -232,7 +326,7 @@ class Village:
             cena_kupna_od_wioski = int(bazowa_cena_produktu * modyfikatory["kupno_od_wioski_mod"])
             cena_sprzedazy_do_wioski = int(bazowa_cena_produktu * modyfikatory["sprzedaz_do_wioski_mod"])
             if cena_sprzedazy_do_wioski > cena_kupna_od_wioski:
-                cena_sprzedazy_do_wioski = cena_kupna_od_wioski 
+                cena_sprzedazy_do_wioski = cena_kupna_od_wioski
             if cena_sprzedazy_do_wioski == cena_kupna_od_wioski and cena_kupna_od_wioski > 1:
                  cena_sprzedazy_do_wioski = max(1, cena_kupna_od_wioski -1)
             self.ceny_produktow_finalne[produkt] = {
@@ -247,7 +341,7 @@ class Village:
             wplyw_str = {-2: "bardzo zły", -1: "zły", 1: "dobry", 2: "bardzo dobry"}.get(wplyw, "neutralny")
             output += f"  - {aspekt} (wpływ: {wplyw_str})\n"
         output += "\nDostępne towary handlowe (ceny uwzględniają Twoją charyzmę):\n"
-        mnoznik_ceny_zakupu_przez_gracza = max(0.7, 1.0 - player_charisma_skill * 0.03) 
+        mnoznik_ceny_zakupu_przez_gracza = max(0.7, 1.0 - player_charisma_skill * 0.03)
         mnoznik_ceny_sprzedazy_przez_gracza = 1.0 + player_charisma_skill * 0.03
         for produkt_nazwa in LISTA_PRODUKTOW_HANDLOWYCH:
             info_produktu = PRODUKTY_HANDLOWE_INFO[produkt_nazwa]
@@ -266,7 +360,7 @@ class Village:
         summary_parts = []
         for aspekt, wplyw_num in self.aspekty_wioski_numeric.items():
             wplyw_str = {-2: "Bb. zły", -1: "Zły", 1: "Dobry", 2: "Bb. dobry"}.get(wplyw_num, "N/A")
-            aspekt_short = aspekt.split('/')[0] 
+            aspekt_short = aspekt.split('/')[0]
             if len(aspekt_short) > 10: aspekt_short = aspekt_short[:8]+".."
             summary_parts.append(f"{aspekt_short}: {wplyw_str}")
         return "(" + ", ".join(summary_parts) + ")"
@@ -278,7 +372,7 @@ class Player:
         self.inventory_cenne = {"bursztyn": 0, "stara_moneta": 0, "rzadkie_zioło_lecznicze": 0, "fragment_mapy": 0}
         self.inventory_towary_handlowe = {produkt: 0 for produkt in LISTA_PRODUKTOW_HANDLOWYCH}
         self.ma_schronienie = False; self.ma_ogien = False
-        self.lokacja_gracza = "WieśStartowa" 
+        self.lokacja_gracza = "WieśStartowa"
         self.dni_w_podrozy = 0.0; self.godziny_w_tej_dobie = 0.0
         self.ma_bonus_do_umiejetnosci = False; self.wartosc_bonusu_do_umiejetnosci = 0; self.opis_bonusu_do_umiejetnosci = ""
         self.poziom = 1; self.xp = 0; self.xp_do_nastepnego_poziomu = 100
@@ -317,8 +411,8 @@ class Player:
         um_str = ", ".join([f"{u.replace('_',' ').capitalize()}: {p}" for u, p in self.umiejetnosci.items()])
         th_str = ", ".join([f"{t}: {i}" for t, i in self.inventory_towary_handlowe.items() if i > 0]) or "Brak"
         bonus_str = f"\nAktywny bonus: {self.opis_bonusu_do_umiejetnosci} (+{self.wartosc_bonusu_do_umiejetnosci} do testu)" if self.ma_bonus_do_umiejetnosci else ""
-        return (f"\n--- Stan Postaci ---\nPoziom: {self.poziom}, XP: {self.xp}/{self.xp_do_nastepnego_poziomu}" + 
-                (f" (Punkty umiejętności: {self.punkty_umiejetnosci_do_wydania})" if self.punkty_umiejetnosci_do_wydania > 0 else "") + 
+        return (f"\n--- Stan Postaci ---\nPoziom: {self.poziom}, XP: {self.xp}/{self.xp_do_nastepnego_poziomu}" +
+                (f" (Punkty umiejętności: {self.punkty_umiejetnosci_do_wydania})" if self.punkty_umiejetnosci_do_wydania > 0 else "") +
                 f"\nUmiejętności: {um_str}\nWytrzymałość: {w_d}/11\nGłód/Pragnienie: {gp_d}/11\nKomfort Psychiczny: {kp_d}/11\n" +
                 f"Ekwipunek: Jedzenie: {self.inventory['jedzenie']}, Woda: {self.inventory['woda']}, Drewno: {self.inventory['drewno']}, Złoto: {self.inventory['zloto']}\n" +
                 f"Cenne Znaleziska: {cenne_str}\nTowary Handlowe: {th_str}\nUdźwig: {self.aktualny_udzwig:.1f}/{self.maks_udzwig:.1f} kg\n" +
@@ -401,12 +495,23 @@ class Player:
             print("Pijesz wodę. Pragnienie nieco maleje.")
             await self.uplyw_czasu(0.2, "picie wody")
         else: print("Nie masz nic do picia.")
-    async def rozpal_ogien(self):
+    async def rozpal_ogien(self, game_instance): # MODYFIKACJA - przekazanie instancji gry
         if self.inventory["drewno"] > 0:
             print("Próbujesz rozpalić ogień...")
             bonus_s = self.umiejetnosci["przetrwanie"] // 2 + self.uzyj_bonusu_umiejetnosci()
             trud_ognia = OBSZARY_DZICZY.get(self.lokacja_gracza, {}).get("trudnosc_ognia", 0.1)
-            prog = max(2, 4 + int(trud_ognia * 10) - bonus_s)
+
+            # --- NOWY KOD - APLIKACJA MODYFIKATORÓW ---
+            dodatkowa_trudnosc_z_mod = 0
+            for mod_nazwa, mod_dane in game_instance.aktywne_modyfikatory_srodowiskowe.items():
+                dodatkowa_trudnosc_z_mod += mod_dane.get("efekty", {}).get("modyfikator_akcji", {}).get("rozpal_ogien_prog", 0)
+
+            if dodatkowa_trudnosc_z_mod > 0:
+                print(f"Warunki ({', '.join(game_instance.aktywne_modyfikatory_srodowiskowe.keys())}) znacznie utrudniają zadanie.")
+
+            prog = max(2, 4 + int(trud_ognia * 10) - bonus_s + dodatkowa_trudnosc_z_mod)
+            # --- KONIEC NOWEGO KODU ---
+
             rzut = Game.rzut_koscia(10)
             if rzut >= prog :
                 self.inventory["drewno"] -= 1; self.ma_ogien = True; self.zmien_potrzebe("komfort_psychiczny", 2.0)
@@ -436,10 +541,11 @@ class Game:
         self.player = Player()
         self.aktualny_etap_eksploracji_idx = 0; self.lokacje_w_aktualnym_etapie = 0
         self.max_lokacji_na_etap = 3; self.odkryte_typy_obszarow = set(); self.aktywne_zadanie = None
-        self.nazwa_aktualnej_wioski = "WieśStartowa" 
-        self.odkryte_wioski_lista_nazw = [self.nazwa_aktualnej_wioski] 
+        self.nazwa_aktualnej_wioski = "WieśStartowa"
+        self.odkryte_wioski_lista_nazw = [self.nazwa_aktualnej_wioski]
         self.wioski_info = {self.nazwa_aktualnej_wioski: Village(self.nazwa_aktualnej_wioski)}
         self.cel_podrozy_nazwa_global = None; self.czy_daleka_podroz_global = False
+        self.aktywne_modyfikatory_srodowiskowe = {} # NOWY ATRYBUT
 
     @staticmethod
     def rzut_koscia(k_max): return random.randint(1, k_max) if k_max > 0 else 0
@@ -447,6 +553,36 @@ class Game:
         if nazwa_obszaru not in self.odkryte_typy_obszarow:
             xp = OBSZARY_DZICZY.get(nazwa_obszaru, {}).get("xp_za_odkrycie", 0)
             if xp > 0: print(f"Odkrywasz: {nazwa_obszaru}!"); await self.player.dodaj_xp(xp); self.odkryte_typy_obszarow.add(nazwa_obszaru)
+    
+    # NOWA METODA W KLASIE Game
+    async def _generuj_i_zastosuj_modyfikatory_srodowiskowe(self):
+        self.aktywne_modyfikatory_srodowiskowe = {} # Resetuj modyfikatory przy każdym nowym kroku
+        # Szansa na wystąpienie modyfikatora, np. 60%
+        if random.random() > 0.4:
+            nazwa_mod = random.choice(list(MODYFIKATORY_SRODOWISKOWE.keys()))
+            mod_dane = MODYFIKATORY_SRODOWISKOWE[nazwa_mod]
+            self.aktywne_modyfikatory_srodowiskowe[nazwa_mod] = mod_dane
+
+            print(f"\nWarunki pogodowe: {nazwa_mod}. {mod_dane['opis']}")
+            
+            # Zastosuj natychmiastowe efekty
+            if "zmien_potrzebe" in mod_dane["efekty"]:
+                for potrzeba, wartosc in mod_dane["efekty"]["zmien_potrzebe"].items():
+                    self.player.zmien_potrzebe(potrzeba, wartosc)
+            
+            # Obsłuż nowe, małe wydarzenia
+            if "nowe_wydarzenie" in mod_dane["efekty"]:
+                event = mod_dane["efekty"]["nowe_wydarzenie"]
+                if random.random() < event["szansa"]:
+                    print(event["tekst"])
+                    if event["akcja"] == "utrata_przedmiotu":
+                        przedm = random.choice(["jedzenie", "woda", "drewno"])
+                        if self.player.inventory[przedm] > 0:
+                            self.player.inventory[przedm] -= 1
+                            print(f"Tracisz 1 szt. {przedm}!")
+            
+            await async_input("Naciśnij Enter...")
+
     async def generuj_zadanie(self):
         if self.aktywne_zadanie: return
         rep = self.player.reputacja.get(self.nazwa_aktualnej_wioski, 0)
@@ -601,8 +737,8 @@ class Game:
             await asyncio.sleep(0.01)
 
     async def petla_wioski(self):
-        self.nazwa_aktualnej_wioski = self.player.lokacja_gracza 
-        if self.nazwa_aktualnej_wioski not in self.player.reputacja: self.player.reputacja[self.nazwa_aktualnej_wioski] = 0 
+        self.nazwa_aktualnej_wioski = self.player.lokacja_gracza
+        if self.nazwa_aktualnej_wioski not in self.player.reputacja: self.player.reputacja[self.nazwa_aktualnej_wioski] = 0
         if self.nazwa_aktualnej_wioski not in self.wioski_info:
             print(f"KRYTYCZNY BŁĄD: Wioska {self.nazwa_aktualnej_wioski} nie w wioski_info!")
             self.wioski_info[self.nazwa_aktualnej_wioski] = Village(self.nazwa_aktualnej_wioski)
@@ -683,12 +819,12 @@ class Game:
                 else: print(f"Starszy z {self.nazwa_aktualnej_wioski} nie ma zadań. Pamiętaj o zadaniu z {self.aktywne_zadanie['zleceniodawca_wioska']}.")
             elif wybor == "11":
                 if self.player.wytrzymalosc <= 3.0 or self.player.glod_pragnienie <=3.0: print("Jesteś zbyt wyczerpany.")
-                else: self.lokacje_w_aktualnym_etapie = 0; self.cel_podrozy_nazwa_global = None; self.czy_daleka_podroz_global = False; return "rozpocznij_eksploracje" 
+                else: self.lokacje_w_aktualnym_etapie = 0; self.cel_podrozy_nazwa_global = None; self.czy_daleka_podroz_global = False; return "rozpocznij_eksploracje"
             elif wybor == "12":
                 status_podr = await self.menu_podrozy_do_wioski()
                 if status_podr == "rozpocznij_eksploracje_do_celu": return "rozpocznij_eksploracje_do_celu"
             elif wybor == "s": download_save(self); print("Stan gry zapisany (próba pobrania).")
-            elif wybor == "l": 
+            elif wybor == "l":
                 json_str_input = await async_input("Wklej zawartość pliku save.json lub wpisz 'anuluj': ")
                 if json_str_input.lower() != 'anuluj' and json_str_input.strip():
                     if load_state_from_json(self, json_str_input):
@@ -789,6 +925,9 @@ class Game:
                     return "znaleziono_wioske"
             
             # Jeśli nie znaleziono wioski, to losowy obszar dziczy
+            # MODYFIKACJA - dodanie Modyfikatorów Środowiskowych
+            await self._generuj_i_zastosuj_modyfikatory_srodowiskowe()
+            
             prog_poz_dyn = max(int(glowna_kosc * 0.6), glowna_kosc - 3)
             if wynik_rzutu >= prog_poz_dyn: print("Odkrywasz interesujący obszar!"); await self.obsluz_obszar_pozytywny()
             else:
@@ -1002,7 +1141,7 @@ class Game:
                 await self.player.odpocznij(self.rzut_koscia(4 if jak_snu > 0 else 3) + (2 if jak_snu > 0 else 1), jak_snu)
             elif wyb == "3": await self.player.jedz_z_ekwipunku()
             elif wyb == "4": await self.player.pij_z_ekwipunku()
-            elif wyb == "5": await self.player.rozpal_ogien() if not self.player.ma_ogien else print("Ogień już płonie.")
+            elif wyb == "5": await self.player.rozpal_ogien(self) if not self.player.ma_ogien else print("Ogień już płonie.") # MODYFIKACJA
             elif wyb == "6":
                 if not self.player.ma_schronienie: await self.player.zbuduj_schronienie()
                 else:
@@ -1052,7 +1191,7 @@ class Game:
                  status_petli = await self.petla_eksploracji(self.cel_podrozy_nazwa_global, self.czy_daleka_podroz_global)
                  if status_petli == "znaleziono_wioske": status_petli = "kontynuuj_glowna_petle" # Aby wejść do pętli wioski
             
-            elif self.player.lokacja_gracza != "Dzicz": 
+            elif self.player.lokacja_gracza != "Dzicz":
                  wynik_wioski = await self.petla_wioski()
                  if wynik_wioski == "rozpocznij_eksploracje": self.player.lokacja_gracza = "Dzicz"; self.cel_podrozy_nazwa_global = None; status_petli = "kontynuuj_glowna_petle"
                  elif wynik_wioski == "rozpocznij_eksploracje_do_celu": status_petli = "rozpocznij_eksploracje_do_celu"
@@ -1071,17 +1210,17 @@ class Game:
 
 # --- Główny Punkt Wejścia (dla Pyodide) ---
 #async def run_game_async_entry_point():
-#    random.seed()  
-#    game_instance = Game() 
-#    js_set_game_instance(game_instance) 
+#    random.seed()
+#    game_instance = Game()
+#    js_set_game_instance(game_instance)
 #    await game_instance.start_gry()
 
 async def run_game_async_entry_point():
     """Asynchroniczny punkt wejścia do gry, wywoływany z JavaScript."""
-    random.seed()  #
-    game = Game() #
+    random.seed()
+    game = Game()
     globals()["game"] = game
-    await game.start_gry() #
+    await game.start_gry()
 
 # Jeśli chcesz testować lokalnie (poza Pyodide), możesz odkomentować:
 # if __name__ == "__main__":
