@@ -868,7 +868,7 @@ class Game:
                     print("'Pamiętaj o naszej tradycji. Zdobywaj wiedzę, by wzmocnić naszą społeczność, gdy wrócisz na stałe.'")
                 elif akt_w_obj.problem:
                     print(f"Starszy wioski wzdycha: '{akt_w_obj.problem['opis']}'")
-                    if await async_input("Chcesz spróbować pomóc? (t/n) > ").lower() == 't':
+                    if (await async_input("Chcesz spróbować pomóc? (t/n) > ")).lower() == 't':
                          await self.menu_pomocy_wiosce(akt_w_obj)
                 else:
                      print("Starszy Wioski wita cię serdecznie. Wydaje się, że społeczność radzi sobie dobrze.")
@@ -1276,7 +1276,7 @@ class Game:
                 if not self.player.ma_schronienie: await self.player.zbuduj_schronienie(self)
                 else:
                     print("Masz schronienie.");
-                    if self.player.inventory["drewno"] > 0 and await async_input("Poprawić schronienie (t/n)? ") == 't':
+                    if self.player.inventory["drewno"] > 0 and (await async_input("Poprawić schronienie (t/n)? ")).lower().strip() == 't':
                         self.player.inventory["drewno"]-=1; self.player.zmien_potrzebe("komfort_psychiczny",0.5); await self.player.uplyw_czasu(self, 0.5, "poprawa schronienia"); print("Poprawiono.")
             elif wyb == "7":
                 ob_d = OBSZARY_DZICZY.get(self.player.lokacja_gracza)
