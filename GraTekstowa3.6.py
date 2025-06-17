@@ -651,7 +651,8 @@ class Game:
         if not self.aktywne_zadanie: return
         zad = self.aktywne_zadanie; ukonczone = False
         if zad["typ"] == "przynies_skory_wilka" and typ_akcji == "pokonano_wilka": zad["postep"] = min(zad["cel_ilosc"], zad["postep"] + ilosc); ukonczone = zad["postep"] >= zad["cel_ilosc"]
-        elif zad["typ"] == "zbierz_ziola" and typ_akcji == "zebrano_rzadkie_ziolo": zad["postep"] = min(zad["cel_ilosc"], zad["postep"] + ilosc); ukonczone = zad["postep"] >= zad["cel_ilosc"]
+        # Poprawiona linia
+        elif zad["typ"] == "zbierz_ziola" and typ_akcji == "zbierz_ziola": zad["postep"] = min(zad["cel_ilosc"], zad["postep"] + ilosc); ukonczone = zad["postep"] >= zad["cel_ilosc"]
         elif zad["typ"] == "upoluj_dzika" and typ_akcji == "pokonano_dzika": zad["postep"] = min(zad["cel_ilosc"], zad["postep"] + ilosc); ukonczone = zad["postep"] >= zad["cel_ilosc"]
         elif zad["typ"] == "zbadaj_miejsce" and typ_akcji == "zbadano_lokacje" and dodatkowe_dane and dodatkowe_dane.get("nazwa_lokacji") == zad["cel_lokacja"]:
             print(f"Zebrałeś info o {zad['cel_lokacja']}. Wróć do {zad['zleceniodawca_wioska']}."); zad["postep"] = 1
