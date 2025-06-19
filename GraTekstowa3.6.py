@@ -401,7 +401,7 @@ class Player:
         self.inventory_towary_handlowe = {produkt: 0 for produkt in LISTA_PRODUKTOW_HANDLOWYCH}
         self.ma_schronienie = False; self.ma_ogien = False
         self.lokacja_gracza = "Ukryta Dolina" # ZMIANA
-        self.dni_w_podrozy = 0.0; self.godziny_w_tej_dobie = 0.0
+        self.dni_w_podrozy = 0.0; self.godziny_w_tej_dobie = 0.0; self.bonus_rzut_od_wartosci = 10.5; self.bonus_rzut_procent_redukcji=0.8
         self.ma_bonus_do_umiejetnosci = False; self.wartosc_bonusu_do_umiejetnosci = 0; self.opis_bonusu_do_umiejetnosci = ""
         self.poziom = 1; self.xp = 0; self.xp_do_nastepnego_poziomu = 100
         self.punkty_umiejetnosci_do_wydania = 1
@@ -463,7 +463,7 @@ class Player:
         stara_wartosc = getattr(self, potrzeba, 0.0)
         oryginalna_wartosc_f = float(wartosc)
         wartosc_f = oryginalna_wartosc_f
-        if wartosc_f < 0 and stara_wartosc >= 10.5: wartosc_f *= 0.8
+        if wartosc_f < 0 and stara_wartosc >= self.bonus_rzut_od_wartosci: wartosc_f *= self.bonus_rzut_procent_redukcji
         nowa_wartosc = max(1.0, min(11.0, stara_wartosc + wartosc_f))
         setattr(self, potrzeba, nowa_wartosc)
         if not cicho and abs(stara_wartosc - nowa_wartosc) > 0.01:
@@ -872,11 +872,30 @@ class Game:
                         if self.player.inventory["zloto"] >= koszt_c: self.player.inventory[towar_nazwa] += il; self.player.inventory["zloto"] -= koszt_c; print(f"Kupiono {il} {towar_nazwa} za {koszt_c} zł."); await self.player.uplyw_czasu(self, 0.2, "zakupy")
                         else: print(f"Brak złota (potrzeba {koszt_c}).")
             elif wybor == "5":
-                if self.player.inventory["zloto"] >= 5:
-                    self.player.inventory["zloto"] -= 5; print("Składasz ofiarę znachorowi..."); await self.player.uplyw_czasu(self, 2, "wizyta u znachora")
-                    if random.random() < 0.6: self.player.przyznaj_bonus_umiejetnosci(self.rzut_koscia(2)+1, "Błogosławieństwo"); self.player.zmien_potrzebe("komfort_psychiczny", 1.0)
-                    else: print("Znachor mamrocze...")
-                else: print("Brak złota na dary.")
+                
+                koszt_blogoslawienstwa = math.ceil(self.player.inventory["zloto"] * 0.15) # 15% złota, zaokrąglone w górę
+                
+                print(f"Znachor proponuje odprawienie rytuału za {koszt_blogoslawienstwa} złota (15% twojego majątku).")
+                print("Rytuał może dać ci bonus do następnego testu umiejętności.")
+
+                if self.player.inventory["zloto"] < koszt_blogoslawienstwa:
+                    print("Niestety, nie stać cię na taką ofiarę.")
+                else:
+                    potwierdzenie = await async_input("Zgadzasz się na ofiarę? (t/n) > ")
+                    if potwierdzenie.strip().lower() == 't':
+                        self.player.inventory["zloto"] -= koszt_blogoslawienstwa
+                        print(f"Składasz ofiarę w wysokości {koszt_blogoslawienstwa} złota...")
+                        await self.player.uplyw_czasu(self, 2, "wizyta u znachora")
+                        
+                        if random.random() < 0.75: # Zwiększona szansa na sukces po zapłacie
+                            self.player.przyznaj_bonus_umiejetnosci(self.rzut_koscia(2) + 1, "Błogosławieństwo od Znachora")
+                            self.player.zmien_potrzebe("komfort_psychiczny", 1.5)
+                        else:
+                            print("Znachor mamrocze pod nosem, ale nie czujesz żadnej zmiany. Ofiara została przyjęta.")
+                            self.player.zmien_potrzebe("komfort_psychiczny", -0.5)
+                    else:
+                        print("Rezygnujesz z rytuału.")
+               
             elif wybor == "6": await self.sprzedaj_cenne_przedmioty()
             elif wybor == "7": await self.kup_towary_handlowe_w_wiosce(akt_w_obj)
             elif wybor == "8": await self.sprzedaj_towary_handlowe_w_wiosce(akt_w_obj)
@@ -1016,8 +1035,50 @@ class Game:
         else: print("Nieprawidłowy numer.")
         
     async def petla_eksploracji(self, cel_podrozy_nazwa=None, poziom_trudnosci_podrozy=0):
-        self.player.lokacja_gracza = "Dzicz"
+        if cel_podrozy_nazwa:
+            print(f"\nPróbujesz odnaleźć drogę do: {cel_podrozy_nazwa}...")
+            print("Nie masz pewności, czy trafisz prosto do celu. Droga przez dzicz jest zdradliwa.")
+            await self.player.uplyw_czasu(self, 1, "planowanie trasy")
 
+            # Obliczanie bonusów do rzutu
+            bonus_nawigacji = self.player.uzyj_bonusu_umiejetnosci()
+            stany = [self.player.wytrzymalosc, self.player.glod_pragnienie, self.player.komfort_psychiczny]
+            bonus_za_potrzeby = sum(1 for s in stany if s >= 9.0)
+            if bonus_za_potrzeby > 0:
+                print(f"Twój dobry stan (+{bonus_za_potrzeby} do rzutu) zwiększa szanse na pomyślną podróż.")
+            
+            # Rzut kością K12
+            rzut_nawigacja = self.rzut_koscia(12)
+            wynik_testu = rzut_nawigacja + bonus_nawigacji + bonus_za_potrzeby
+            szansa_procentowa = min(100, max(10, wynik_testu * 7)) # Wynik rzutu określa % szansy
+
+            print(f"Rzut K12 na nawigację: {rzut_nawigacja} + bonus {bonus_nawigacji+bonus_za_potrzeby} = {wynik_testu}")
+            print(f"Twoja szansa na dotarcie do celu wynosi: {szansa_procentowa}%")
+
+            if random.randint(1, 100) <= szansa_procentowa:
+                # Sukces! Gracz dociera do celu.
+                print(f"Po trudach podróży docierasz do celu: {cel_podrozy_nazwa}!")
+                self.player.lokacja_gracza = cel_podrozy_nazwa
+                await self.player.dodaj_xp(30, self)
+                return "znaleziono_wioske"
+            else:
+                # Porażka! Gracz trafia do innej, losowej wioski.
+                print("Niestety! Zgubiona droga doprowadziła cię w inne miejsce...")
+                dostepne_inne_wioski = [
+                    w for w in self.odkryte_wioski_lista_nazw 
+                    if w != cel_podrozy_nazwa and w != self.nazwa_aktualnej_wioski
+                ]
+                if dostepne_inne_wioski:
+                    losowa_wioska = random.choice(dostepne_inne_wioski)
+                    print(f"Ostatecznie docierasz do... {losowa_wioska}!")
+                    self.player.lokacja_gracza = losowa_wioska
+                else:
+                    # Jeśli nie ma innych wiosek, wraca do punktu startu, aby uniknąć błędu
+                    print(f"Krążąc w kółko, wracasz do punktu wyjścia: {self.nazwa_aktualnej_wioski}.")
+                    self.player.lokacja_gracza = self.nazwa_aktualnej_wioski
+                return "znaleziono_wioske" # Zwracamy ten sam status, by gra wróciła do pętli wioski
+
+        self.aktualny_etap_eksploracji_idx = 0
         # --- NOWY KOMUNIKAT NA STARCIE ---
         if poziom_trudnosci_podrozy > 0:
             print(f"\n--- Wyruszasz w niebezpieczną podróż do celu: {cel_podrozy_nazwa} (Trudność: {poziom_trudnosci_podrozy}) ---")
