@@ -574,6 +574,8 @@ class Game:
         self.wioski_info = {self.nazwa_aktualnej_wioski: Village(self.nazwa_aktualnej_wioski)}
         self.cel_podrozy_nazwa_global = None; self.czy_daleka_podroz_global = False
         self.aktywne_modyfikatory_srodowiskowe = {}
+        
+        self.poziom_trudnosci_podrozy_global = 0
 
     @staticmethod
     def rzut_koscia(k_max): return random.randint(1, k_max) if k_max > 0 else 0
@@ -771,16 +773,33 @@ class Game:
             if wybor == '0': return "kontynuuj_w_wiosce"
             elif wybor == 'n' and kon_idx < len(podrozowalne): akt_str += 1
             elif wybor == 'p' and akt_str > 0: akt_str -= 1
+            # Wewnątrz klasy Game, w metodzie menu_podrozy_do_wioski
+
             elif wybor.isdigit():
                 idx_wyb = int(wybor) - 1
                 if 0 <= idx_wyb < len(wioski_na_stronie):
                     nazwa_celu, _, _ = wioski_na_stronie[idx_wyb]
-                    czy_daleka_final = akt_str > 0
-                    print(f"Wybrano podróż do: {nazwa_celu}{' z utrudnieniem.' if czy_daleka_final else '.'}")
-                    potwierdzenie_input = await async_input("Potwierdź (t/n): ")
+                    
+                    # --- NOWA LOGIKA TRUDNOŚCI ---
+                    # Zamiast `czy_daleka_final`, obliczamy poziom trudności
+                    # akt_str to numer strony (0 dla bliskich, 1+ dla dalekich)
+                    poziom_trudnosci_podrozy = 1 + akt_str 
+                    
+                    # --- NOWY KOMUNIKAT OSTRZEGAWCZY DLA GRACZA ---
+                    if poziom_trudnosci_podrozy == 1:
+                        opis_trudnosci = "wymagająca"
+                    else: # poziom 2 lub więcej
+                        opis_trudnosci = f"bardzo niebezpieczna (Poziom: {poziom_trudnosci_podrozy})"
+
+                    print(f"Wybrano podróż do: {nazwa_celu}.")
+                    print(f"UWAGA: Podróż do znanego celu jest {opis_trudnosci}. Forsowanie szlaku przez dzicz jest bardziej męczące i przyciąga więcej zagrożeń.")
+                    
+                    potwierdzenie_input = await async_input("Czy na pewno chcesz wyruszyć? (t/n): ")
                     if potwierdzenie_input.strip().lower() == 't':
+                                # Przekazujemy nowy parametr zamiast starych
                                 self.cel_podrozy_nazwa_global = nazwa_celu
-                                self.czy_daleka_podroz_global = czy_daleka_final
+                                self.poziom_trudnosci_podrozy_global = poziom_trudnosci_podrozy # Nowa zmienna globalna
+                                self.czy_daleka_podroz_global = False # Już niepotrzebne, ale dla spójności
                                 return "rozpocznij_eksploracje_do_celu"
             else: print("Nieprawidłowy wybór.")
             await asyncio.sleep(0.01)
@@ -995,78 +1014,95 @@ class Game:
                     await self.player.uplyw_czasu(self, 0.5, "handel na targu"); return
                 else: print(f"Nieprawidłowa ilość. Masz {il_it}.")
         else: print("Nieprawidłowy numer.")
-
-    async def petla_eksploracji(self, cel_podrozy_nazwa=None, czy_daleka_podroz=False):
+        
+    async def petla_eksploracji(self, cel_podrozy_nazwa=None, poziom_trudnosci_podrozy=0):
         self.player.lokacja_gracza = "Dzicz"
-        print(f"\n--- Wyruszasz w dzicz{' do celu: ' + cel_podrozy_nazwa if cel_podrozy_nazwa else ''}... ---")
+
+        # --- NOWY KOMUNIKAT NA STARCIE ---
+        if poziom_trudnosci_podrozy > 0:
+            print(f"\n--- Wyruszasz w niebezpieczną podróż do celu: {cel_podrozy_nazwa} (Trudność: {poziom_trudnosci_podrozy}) ---")
+            print("Czujesz, że dzicz stawia opór twoim planom...")
+        else:
+            print(f"\n--- Wyruszasz w dzicz... ---")
+
         await async_input("Naciśnij Enter, aby kontynuować...")
-        
+
         akt_etapy_ekspl = ETAPY_EKSPLORACJI
-        if cel_podrozy_nazwa and czy_daleka_podroz:
-            print("To daleka podróż, warunki będą trudniejsze."); await asyncio.sleep(0.01)
-            akt_etapy_ekspl_kopia = []
-            for etap_org in ETAPY_EKSPLORACJI:
-                nowy_etap = etap_org.copy(); nowy_etap["szanse_na_wies"] = [max(0, s - 1) for s in etap_org["szanse_na_wies"]]
-                akt_etapy_ekspl_kopia.append(nowy_etap)
-            akt_etapy_ekspl = akt_etapy_ekspl_kopia
-        
         max_etap_idx = len(akt_etapy_ekspl) - 1
-        
+
         for _ in range(self.max_lokacji_na_etap):
             if await self.sprawdz_stan_krytyczny("dzicz_start_kroku"): return "koniec_gry"
-            
+
             print(f"\n--- Dzień {int(self.player.dni_w_podrozy)+1} (Etap dziczy: {self.aktualny_etap_eksploracji_idx+1}, Krok: {self.lokacje_w_aktualnym_etapie+1}/{self.max_lokacji_na_etap}) ---")
             etap_idx = min(self.aktualny_etap_eksploracji_idx, max_etap_idx)
             etap = akt_etapy_ekspl[etap_idx]
             kosci_etapu = etap["kosci"]
             nr_w_kroku = self.lokacje_w_aktualnym_etapie % len(kosci_etapu)
             glowna_kosc = kosci_etapu[nr_w_kroku]
-            
+
             print(self.player); print(f"Rzucasz K{glowna_kosc} w poszukiwaniu drogi..."); await asyncio.sleep(0.01)
             wynik_rzutu = self.rzut_koscia(glowna_kosc); print(f"Wynik rzutu: {wynik_rzutu} (na K{glowna_kosc})")
-            
-            koszt_wytrz = max(0.5, (self.rzut_koscia(2)+1) * (1.0 - self.player.umiejetnosci["przetrwanie"] * 0.05))
+
+            # --- ZWIĘKSZONY KOSZT WYTRZYMAŁOŚCI ---
+            mnoznik_kosztu = 1.0 + (0.3 * poziom_trudnosci_podrozy) # +30% kosztu za każdy poziom trudności
+            koszt_wytrz = max(0.5, (self.rzut_koscia(2)+1) * (1.0 - self.player.umiejetnosci["przetrwanie"] * 0.05)) * mnoznik_kosztu
+            if poziom_trudnosci_podrozy > 0:
+                print(f"Celowa podróż jest bardziej wyczerpująca (koszt wytrzymałości x{mnoznik_kosztu:.1f}).")
+
             self.player.zmien_potrzebe("wytrzymalosc", -koszt_wytrz, cicho=True)
             await self.player.uplyw_czasu(self, self.rzut_koscia(2) + 2, "poszukiwanie drogi")
-            
+
             self.lokacje_w_aktualnym_etapie += 1
-            
+
             if wynik_rzutu in etap["szanse_na_wies"]:
                 if cel_podrozy_nazwa:
-                    print(f"Po trudach podróży docierasz do celu: {cel_podrozy_nazwa}!"); self.player.lokacja_gracza = cel_podrozy_nazwa
+                    print(f"Po trudach podróży docierasz do celu: {cel_podrozy_nazwa}!")
+                    self.player.lokacja_gracza = cel_podrozy_nazwa
                     if cel_podrozy_nazwa not in self.wioski_info: self.wioski_info[cel_podrozy_nazwa] = Village(cel_podrozy_nazwa)
                     if cel_podrozy_nazwa not in self.odkryte_wioski_lista_nazw: self.odkryte_wioski_lista_nazw.append(cel_podrozy_nazwa)
-                    await self.player.dodaj_xp(20 + etap_idx * 5, self); return "znaleziono_wioske"
+                    await self.player.dodaj_xp(20 + etap_idx * 5, self)
+                    return "znaleziono_wioske"
                 else:
-                    print("Niespodziewanie trafiasz na ślady prowadzące do osady!");
+                    print("Niespodziewanie trafiasz na ślady prowadzące do osady!")
                     nowa_nazwa = f"OsadaNr{Game.rzut_koscia(100) + len(self.odkryte_wioski_lista_nazw)}"
                     if nowa_nazwa not in self.wioski_info:
                         self.wioski_info[nowa_nazwa] = Village(nowa_nazwa)
                         self.odkryte_wioski_lista_nazw.append(nowa_nazwa)
-                        print(f"Odkryłeś nową osadę: {nowa_nazwa}!");
+                        print(f"Odkryłeś nową osadę: {nowa_nazwa}!")
                         await self.player.dodaj_xp(50 + etap_idx * 10, self)
-                        await self.sprawdz_odblokowanie_wiedzy() # NOWOŚĆ
-                    else: print(f"Droga prowadzi do znanej osady: {nowa_nazwa}."); await self.player.dodaj_xp(10, self)
+                        await self.sprawdz_odblokowanie_wiedzy()
+                    else:
+                        print(f"Droga prowadzi do znanej osady: {nowa_nazwa}.")
+                        await self.player.dodaj_xp(10, self)
                     self.player.lokacja_gracza = nowa_nazwa
                     zloto = self.rzut_koscia(3)+self.rzut_koscia(3); self.player.inventory["zloto"] += zloto; print(f"Znajdujesz {zloto} złota.")
                     return "znaleziono_wioske"
-            
-            await self._generuj_i_zastosuj_modyfikatory_srodowiskowe()
-            
-            prog_poz_dyn = max(int(glowna_kosc * 0.6), glowna_kosc - 3)
-            if wynik_rzutu >= prog_poz_dyn: print("Odkrywasz interesujący obszar!"); await self.obsluz_obszar_pozytywny()
+
+            # --- WIĘKSZA SZANSA NA ZŁĄ POGODĘ ---
+            szansa_na_brak_pogody = 0.4 - (0.1 * poziom_trudnosci_podrozy) # 60% -> 70% -> 80% szans na modyfikator
+            if random.random() > szansa_na_brak_pogody:
+                await self._generuj_i_zastosuj_modyfikatory_srodowiskowe()
             else:
+                self.aktywne_modyfikatory_srodowiskowe = {} # Zeruj modyfikatory, jeśli nie wylosowano
+
+            # --- WIĘKSZA SZANSA NA NEGATYWNY OBSZAR ---
+            prog_poz_dyn = max(int(glowna_kosc * 0.6), glowna_kosc - 3) + poziom_trudnosci_podrozy
+            if wynik_rzutu >= prog_poz_dyn:
+                print("Mimo trudności, odkrywasz interesujący obszar!")
+                await self.obsluz_obszar_pozytywny()
+            else:
+                print("Droga jest zdradliwa i prowadzi cię w nieprzyjemne miejsce.")
                 dost_obsz = [n for n, d in OBSZARY_DZICZY.items() if not d.get("pozytywny")] or list(OBSZARY_DZICZY.keys())
                 nazwa_ob = random.choice(dost_obsz); self.player.lokacja_gracza = nazwa_ob
                 await self.przyznaj_xp_za_odkrycie_obszaru(nazwa_ob); await self.obsluz_obszar_dziczy(nazwa_ob)
-            
+
             if self.aktywne_zadanie and self.aktywne_zadanie["typ"] == "zbadaj_miejsce":
                 await self.sprawdz_postep_zadania("zbadano_lokacje", dodatkowe_dane={"nazwa_lokacji": self.player.lokacja_gracza})
-            
+
             status_akcji = await self.akcje_w_dziczy()
             if status_akcji == "koniec_gry": return "koniec_gry"
             if status_akcji == "kontynuuj": pass
-            
+
             if self.player.ma_ogien and random.random() < 0.4: self.player.ma_ogien = False; self.player.zmien_potrzebe("komfort_psychiczny", -1.0); print("Ogień zgasł...")
             if self.player.ma_schronienie and random.random() < 0.15: self.player.ma_schronienie = False; self.player.zmien_potrzebe("komfort_psychiczny", -1.0); print("Schronienie uszkodzone.")
 
@@ -1075,7 +1111,7 @@ class Game:
             if self.aktualny_etap_eksploracji_idx < max_etap_idx: self.aktualny_etap_eksploracji_idx +=1
             else: print("Zapuszczasz się w najgłębsze ostępy dziczy...")
             print(f"Wkraczasz w nowy rejon dziczy (Etap {self.aktualny_etap_eksploracji_idx + 1}).")
-        
+
         self.player.lokacja_gracza = "Dzicz"
         return "kontynuuj_eksploracje"
 
@@ -1319,14 +1355,20 @@ class Game:
             if status_petli == "przeladuj_petle_wioski":
                 self.nazwa_aktualnej_wioski = self.player.lokacja_gracza
                 status_petli = await self.petla_wioski()
+            
             elif status_petli == "rozpocznij_eksploracje_do_celu":
                 if self.cel_podrozy_nazwa_global:
-                    status_petli = await self.petla_eksploracji(self.cel_podrozy_nazwa_global, self.czy_daleka_podroz_global)
-                    self.cel_podrozy_nazwa_global = None; self.czy_daleka_podroz_global = False
+                    # Przekazujemy nowy parametr
+                    status_petli = await self.petla_eksploracji(self.cel_podrozy_nazwa_global, self.poziom_trudnosci_podrozy_global)
+                    self.cel_podrozy_nazwa_global = None
+                    self.poziom_trudnosci_podrozy_global = 0 # Resetuj po podróży
                     if status_petli == "znaleziono_wioske": status_petli = "kontynuuj_glowna_petle"
-                else: print("Błąd: Cel podróży nie ustawiony."); status_petli = "kontynuuj_glowna_petle"
+                else: 
+                    print("Błąd: Cel podróży nie ustawiony.")
+                    status_petli = "kontynuuj_glowna_petle"
             elif self.player.lokacja_gracza == "Dzicz" or status_petli == "rozpocznij_eksploracje" or status_petli == "kontynuuj_eksploracje":
-                 status_petli = await self.petla_eksploracji(self.cel_podrozy_nazwa_global, self.czy_daleka_podroz_global)
+                 # Zwykła eksploracja - wywołanie bez parametrów (domyślnie trudność 0)
+                 status_petli = await self.petla_eksploracji()
                  if status_petli == "znaleziono_wioske": status_petli = "kontynuuj_glowna_petle"
             elif self.player.lokacja_gracza != "Dzicz":
                  wynik_wioski = await self.petla_wioski()
